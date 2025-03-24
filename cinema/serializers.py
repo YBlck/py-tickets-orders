@@ -88,13 +88,15 @@ class TicketSerializer(serializers.ModelSerializer):
         fields = ("id", "row", "seat", "movie_session")
 
     @staticmethod
-    def validate_row_seat(attr_value: int, attr_name: str, attr_max_value: int) -> None:
+    def validate_row_seat(
+            attr_value: int, attr_name: str, attr_max_value: int
+    ) -> None:
         if not (1 <= attr_value <= attr_max_value):
             raise serializers.ValidationError(
                 {
                     attr_name: f"{attr_name} "
-                               f"number must be in available range: "
-                               f"(1, {attr_max_value}): "
+                    f"number must be in available range: "
+                    f"(1, {attr_max_value})"
                 }
             )
 
@@ -112,7 +114,9 @@ class TicketDetailSerializer(TicketSerializer):
 class MovieSessionDetailSerializer(MovieSessionSerializer):
     movie = MovieListSerializer(many=False, read_only=True)
     cinema_hall = CinemaHallSerializer(many=False, read_only=True)
-    taken_places = TicketDetailSerializer(many=True, read_only=True, source="tickets")
+    taken_places = TicketDetailSerializer(
+        many=True, read_only=True, source="tickets"
+    )
 
     class Meta:
         model = MovieSession
