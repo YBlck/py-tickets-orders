@@ -68,13 +68,7 @@ class MovieSessionListSerializer(MovieSessionSerializer):
     cinema_hall_capacity = serializers.IntegerField(
         source="cinema_hall.capacity", read_only=True
     )
-    tickets_available = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_tickets_available(obj):
-        capacity = obj.cinema_hall.capacity
-        tickets_sold = getattr(obj, "tickets_sold", 0)
-        return max(capacity - tickets_sold, 0)
+    tickets_available = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = MovieSession
