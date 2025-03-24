@@ -1,7 +1,9 @@
+from datetime import datetime
+
+from django.db.models import Count
 from rest_framework import viewsets
 
 from cinema.models import Genre, Actor, CinemaHall, Movie, MovieSession, Order
-
 from cinema.serializers import (
     GenreSerializer,
     ActorSerializer,
@@ -66,12 +68,28 @@ class MovieViewSet(viewsets.ModelViewSet):
 
 
 class MovieSessionViewSet(viewsets.ModelViewSet):
-    queryset = MovieSession.objects.all()
+    queryset = MovieSession.objects.select_related("movie", "cinema_hall")
     serializer_class = MovieSessionSerializer
 
-    @staticmethod
-    def _param_to_id_list(string: str) -> list:
-        return [int(num) for num in string.split(",")]
+    def get_queryset(self):
+        queryset = self.queryset
+
+        if self.action == "list":
+            queryset = (
+                queryset.annotate(tickets_sold=Count("tickets")))
+
+            movie = self.request.query_params.get("movie", None)
+            date = self.request.query_params.get("date", None)
+
+            if movie:
+                movie = Movie.objects.get(pk=movie)
+                queryset = queryset.filter(movie=movie)
+
+            if date:
+                date = datetime.strptime(date, "%Y-%m-%d").date()
+                queryset = queryset.filter(show_time__startswith=date)
+
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "list":
