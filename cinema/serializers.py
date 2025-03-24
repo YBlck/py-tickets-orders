@@ -1,7 +1,8 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from cinema.models import (
-    Genre, Actor, CinemaHall, Movie, MovieSession, Order)
+    Genre, Actor, CinemaHall, Movie, MovieSession, Order, Ticket)
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -81,8 +82,49 @@ class MovieSessionDetailSerializer(MovieSessionSerializer):
         fields = ("id", "show_time", "movie", "cinema_hall")
 
 
+class TicketSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "row", "seat", "movie_session")
+
+    @staticmethod
+    def validate_row_seat(attr_value: int, attr_name: str, attr_max_value: int) -> None:
+        if not (1 <= attr_value <= attr_max_value):
+            raise serializers.ValidationError(
+                {
+                    attr_name: f"{attr_name} "
+                               f"number must be in available range: "
+                               f"(1, {attr_max_value}): "
+                }
+            )
+
+    def validate(self, data):
+        max_row = data["movie_session"].cinema_hall.rows
+        max_seat = data["movie_session"].cinema_hall.seats_in_row
+        self.validate_row_seat(data["row"], "row", max_row)
+        self.validate_row_seat(data["seat"], "seat", max_seat)
+        return data
+
+
+class TicketListSerializer(TicketSerializer):
+    movie_session = MovieSessionListSerializer(many=False, read_only=True)
+
+
 class OrderSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(many=True, read_only=False)
 
     class Meta:
         model = Order
-        fields = ("id", "created_at", "user")
+        fields = ("id", "tickets", "created_at")
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            tickets = validated_data.pop("tickets")
+            order = Order.objects.create(**validated_data)
+            for ticket in tickets:
+                Ticket.objects.create(order=order, **ticket)
+            return order
+
+class OrderListSerializer(OrderSerializer):
+    tickets = TicketListSerializer(many=True, read_only=True)
